@@ -4,6 +4,18 @@ from functions import make_headers, convert_currencies, color_sum_headers
 
 df = pd.read_csv('data.csv')
 
+# 🔹 Clean up the "Formulation" column so it becomes numeric
+df['Formulation'] = (
+    df['Formulation']
+    .str.replace("IDR", "", regex=False)
+    .str.replace("Rp", "", regex=False)
+    .str.replace(",", "", regex=False)
+    .str.replace("\u00a0", "", regex=False)  # remove non-breaking space
+    .str.strip()
+    .astype(float)   # convert to float (in case of decimals)
+    .astype(int)     # then to int
+)
+
 needsDf = pd.DataFrame(columns=['Source', 'Date', 'Amount'])
 wantsDf = pd.DataFrame(columns=['Source', 'Date', 'Amount'])
 savingDf = pd.DataFrame(columns=['Source', 'Date', 'Amount'])
@@ -45,5 +57,26 @@ worksheet = workbook['Sheet1']
 color_sum_headers(sum_df,worksheet)
 # convert_currencies(worksheet)
 make_headers(cellRange,worksheet)
+
+# Tambahkan rumus untuk summary (Expenses, Fund, Rest)
+for row_idx, category in enumerate(cellRange.values(), start=3):  # mulai dari baris ke-3
+    expenses_col = "L"  # kolom Expenses
+    fund_col = "M"      # kolom Fund
+    rest_col = "N"      # kolom Rest
+
+    if category == "Needs":
+        worksheet[f"{expenses_col}{row_idx}"] = '=SUMIF(C:C,"<0",C:C)'
+        worksheet[f"{fund_col}{row_idx}"]     = '=SUMIF(C:C,">0",C:C)'
+    elif category == "Wants":
+        worksheet[f"{expenses_col}{row_idx}"] = '=SUMIF(F:F,"<0",F:F)'
+        worksheet[f"{fund_col}{row_idx}"]     = '=SUMIF(F:F,">0",F:F)'
+    elif category == "Saving":
+        worksheet[f"{expenses_col}{row_idx}"] = '=SUMIF(I:I,"<0",I:I)'
+        worksheet[f"{fund_col}{row_idx}"]     = '=SUMIF(I:I,">0",I:I)'
+
+    # Rest = Expenses + Fund
+    worksheet[f"{rest_col}{row_idx}"] = f"={expenses_col}{row_idx}+{fund_col}{row_idx}"
+
+
 
 writer._save()
